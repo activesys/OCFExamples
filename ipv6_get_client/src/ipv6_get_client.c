@@ -30,7 +30,7 @@ static oc_string_t name;
 
 
 static void
-get_light(oc_client_response_t *data)
+get_light_handler(oc_client_response_t *data)
 {
     PRINT("GET_light:\n");
     oc_rep_t *rep = data->payload;
@@ -59,14 +59,21 @@ get_light(oc_client_response_t *data)
     }
 }
 
+static oc_event_callback_retval_t get_light(void* data)
+{
+    oc_make_ipv6_endpoint(
+        addr, IPV6, 5683, 0xfe, 0x80, 0, 0, 0, 0, 0, 0,
+        0x50, 0xa6, 0xd4, 0x8c, 0xa7, 0x09, 0x7a, 0x06);
+    addr.interface_index = 16;
+    oc_do_get("/a/light", &addr, NULL, &get_light_handler, LOW_QOS, NULL);
+
+    return OC_EVENT_CONTINUE;
+}
+
 static void
 issue_requests(void)
 {
-    oc_make_ipv6_endpoint(
-        addr, IPV6, 5683, 0xfe, 0x80, 0, 0, 0, 0, 0, 0, 
-        0x50, 0xa6, 0xd4, 0x8c, 0xa7, 0x09, 0x7a, 0x06);
-    addr.interface_index = 16;
-    oc_do_get("/a/light", &addr, NULL, &get_light, LOW_QOS, NULL);
+    oc_set_delayed_callback(NULL, get_light, 10);
 }
 
 static void

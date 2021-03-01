@@ -48,6 +48,12 @@ get_light(oc_request_t *request, oc_interface_mask_t iface_mask,
     oc_send_response(request, OC_STATUS_OK);
 }
 
+static oc_event_callback_retval_t update_power(void * data)
+{
+    power = rand();
+    return OC_EVENT_CONTINUE;
+}
+
 static void
 register_resources(void)
 {
@@ -57,6 +63,8 @@ register_resources(void)
     oc_resource_set_default_interface(res, OC_IF_RW);
     oc_resource_set_request_handler(res, OC_GET, get_light, NULL);
     oc_add_resource(res);
+
+    oc_set_delayed_callback(NULL, update_power, 7);
 }
 
 static void
