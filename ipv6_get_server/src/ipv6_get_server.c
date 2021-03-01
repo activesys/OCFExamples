@@ -3,12 +3,22 @@
 #include "oc_api.h"
 #include "port/oc_clock.h"
 #include <signal.h>
+#ifdef WIN32
 #include <windows.h>
+#else
+#include <pthread.h>
+#endif
 
 int quit = 0;
 
+#ifdef WIN32
 static CONDITION_VARIABLE cv;
 static CRITICAL_SECTION cs;
+#else
+pthread_mutex_t mutex;
+pthread_cond_t  cv;
+struct timespec ts;
+#endif
 
 static bool state = false;
 int power;
@@ -62,7 +72,13 @@ register_resources(void)
 static void
 signal_event_loop(void)
 {
+#ifdef WIN32
     WakeConditionVariable(&cv);
+#else
+    pthread_mutex_lock(&mutex);
+    pthread_cond_signal(&cv);
+    pthread_mutex_unlock(&mutex);
+#endif
 }
 
 void
@@ -75,12 +91,19 @@ handle_signal(int signal)
 int
 main(void)
 {
-    InitializeCriticalSection(&cs);
-    InitializeConditionVariable(&cv);
-
     int init;
 
+#ifdef WIN32
+    InitializeCriticalSection(&cs);
+    InitializeConditionVariable(&cv);
     signal(SIGINT, handle_signal);
+#else
+    struct sigaction sa;
+    sigfillset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    sa.sa_handler = handle_signal;
+    sigaction(SIGINT, &sa, NULL);
+#endif
 
     static const oc_handler_t handler = { .init = app_init,
                                          .signal_event_loop = signal_event_loop,
@@ -99,6 +122,7 @@ main(void)
 
     while (quit != 1) {
         next_event = oc_main_poll();
+#ifdef WIN32
         if (next_event == 0) {
             SleepConditionVariableCS(&cv, &cs, INFINITE);
         } else {
@@ -108,6 +132,17 @@ main(void)
                     (DWORD)((next_event - now) * 1000 / OC_CLOCK_SECOND));
             }
         }
+#else
+        pthread_mutex_lock(&mutex);
+        if (next_event == 0) {
+            pthread_cond_wait(&cv, &mutex);
+        } else {
+            ts.tv_sec = (next_event / OC_CLOCK_SECOND);
+            ts.tv_nsec = (next_event % OC_CLOCK_SECOND) * 1.e09 / OC_CLOCK_SECOND;
+            pthread_cond_timedwait(&cv, &mutex, &ts);
+        }
+        pthread_mutex_unlock(&mutex);
+#endif
     }
 
     oc_main_shutdown();
