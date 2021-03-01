@@ -71,10 +71,13 @@ get_light_handler(oc_client_response_t *data)
 
 static oc_event_callback_retval_t get_light(void* data)
 {
-    oc_make_ipv6_endpoint(
-        addr, IPV6, 5683, 0xfe, 0x80, 0, 0, 0, 0, 0, 0,
-        0x50, 0xa6, 0xd4, 0x8c, 0xa7, 0x09, 0x7a, 0x06);
-    addr.interface_index = 16;
+    oc_string_t ep;
+    oc_endpoint_t addr;
+    const char* addr_str = "coap://[fe80::ee17:2fff:fec0:33ad]";
+    oc_new_string(&ep, addr_str, strlen(addr_str));
+    oc_string_to_endpoint(&ep, &addr, NULL);
+    addr.interface_index = 17;
+
     oc_do_get("/a/light", &addr, NULL, &get_light_handler, LOW_QOS, NULL);
 
     return OC_EVENT_CONTINUE;
