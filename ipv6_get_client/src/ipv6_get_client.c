@@ -12,6 +12,9 @@
 
 int quit = 0;
 
+const char* addr_str = NULL;
+int if_index = 0;
+
 #ifdef WIN32
 static CONDITION_VARIABLE cv;
 static CRITICAL_SECTION cs;
@@ -73,10 +76,9 @@ static oc_event_callback_retval_t get_light(void* data)
 {
     oc_string_t ep;
     oc_endpoint_t addr;
-    const char* addr_str = "coap://[fe80::68f6:dd41:b217:f89e]";
     oc_new_string(&ep, addr_str, strlen(addr_str));
     oc_string_to_endpoint(&ep, &addr, NULL);
-    addr.interface_index = 2;
+    addr.interface_index = if_index;
 
     oc_do_get("/a/light", &addr, NULL, &get_light_handler, LOW_QOS, NULL);
 
@@ -109,9 +111,17 @@ handle_signal(int signal)
 }
 
 int
-main(void)
+main(int argc, char* argv[])
 {
     int init;
+
+    if (argc != 3) {
+        PRINT("Invalid arguments, Usage: ipv6_get_client [addr] [index]\n");
+        return -1;
+    }
+
+    addr_str = argv[1];
+    if_index = atoi(argv[2]);
 
 #ifdef WIN32
     InitializeCriticalSection(&cs);
