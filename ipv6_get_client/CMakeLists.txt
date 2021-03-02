@@ -40,7 +40,7 @@ add_executable(ipv6_get_client ${IPV6_GET_CLIENT_SOURCES})
 if(WIN32)
     target_link_libraries(ipv6_get_client ws2_32 Iphlpapi ${ASDEV_IOTIVITY_LITE_LIB})
 else(WIN32)
-    target_link_libraries(ipv6_get_client ${ASDEV_IOTIVITY_LITE_CLIENT_LIB})
+    target_link_libraries(ipv6_get_client ${ASDEV_IOTIVITY_LITE_LIB})
 endif(WIN32)
 
 ##################################

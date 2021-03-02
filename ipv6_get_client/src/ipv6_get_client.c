@@ -73,10 +73,10 @@ static oc_event_callback_retval_t get_light(void* data)
 {
     oc_string_t ep;
     oc_endpoint_t addr;
-    const char* addr_str = "coap://[fe80::ee17:2fff:fec0:33ad]";
+    const char* addr_str = "coap://[fe80::68f6:dd41:b217:f89e]";
     oc_new_string(&ep, addr_str, strlen(addr_str));
     oc_string_to_endpoint(&ep, &addr, NULL);
-    addr.interface_index = 17;
+    addr.interface_index = 2;
 
     oc_do_get("/a/light", &addr, NULL, &get_light_handler, LOW_QOS, NULL);
 

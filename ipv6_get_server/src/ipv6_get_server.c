@@ -39,7 +39,6 @@ get_light(oc_request_t *request, oc_interface_mask_t iface_mask,
     void *user_data)
 {
     (void)user_data;
-    ++power;
 
     PRINT("GET_light:\n");
     oc_rep_start_root_object();
