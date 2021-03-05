@@ -14,6 +14,7 @@ int quit = 0;
 
 const char* addr_str = NULL;
 int if_index = 0;
+static bool after_put = false;
 
 #ifdef WIN32
 static CONDITION_VARIABLE cv;
@@ -41,9 +42,32 @@ static bool state;
 static int power;
 static oc_string_t name;
 
+static void get_light(oc_client_response_t*);
 
 static void
-get_light_handler(oc_client_response_t *data)
+put_light(oc_client_response_t* data)
+{
+    if (data->code == OC_STATUS_CHANGED) {
+        printf("PUT response CHANGED\n");
+    } else {
+        printf("PUT response code: %d\n", data->code);
+    }
+
+    after_put = true;
+
+    oc_string_t ep;
+    oc_endpoint_t addr;
+    oc_new_string(&ep, addr_str, strlen(addr_str));
+    oc_string_to_endpoint(&ep, &addr, NULL);
+    addr.interface_index = if_index;
+
+    oc_do_get("/a/light", &addr, NULL, &get_light, LOW_QOS, NULL);
+
+    oc_free_string(&ep);
+}
+
+static void
+get_light(oc_client_response_t *data)
 {
     char* json = NULL;
     size_t json_size = 0;
@@ -80,25 +104,61 @@ get_light_handler(oc_client_response_t *data)
         }
         rep = rep->next;
     }
+
+    if (!after_put) {
+        oc_string_t ep;
+        oc_endpoint_t addr;
+        oc_new_string(&ep, addr_str, strlen(addr_str));
+        oc_string_to_endpoint(&ep, &addr, NULL);
+        addr.interface_index = if_index;
+
+        if (oc_init_put("/a/light", &addr, NULL, &put_light, LOW_QOS, NULL)) {
+            oc_rep_start_root_object();
+            oc_rep_set_boolean(root, state, true);
+            oc_rep_set_int(root, power, 189);
+            oc_rep_end_root_object();
+
+            oc_do_put();
+        }
+
+        oc_free_string(&ep);
+    }
 }
 
-static oc_event_callback_retval_t get_light(void* data)
+oc_discovery_flags_t discovery_handler(
+    const char * anchor, const char * uri, oc_string_array_t types, oc_interface_mask_t iface_mask,
+    oc_endpoint_t * endpoint, oc_resource_properties_t bm, void * user_data)
 {
-    oc_string_t ep;
-    oc_endpoint_t addr;
-    oc_new_string(&ep, addr_str, strlen(addr_str));
-    oc_string_to_endpoint(&ep, &addr, NULL);
-    addr.interface_index = if_index;
+    int i;
+    size_t uri_len = strlen(uri);
+    uri_len = (uri_len >= MAX_URI_LENGTH) ? MAX_URI_LENGTH - 1 : uri_len;
+    PRINT("\n\nDISCOVERYCB %s %s %zd\n\n", anchor, uri,
+        oc_string_array_get_allocated_size(types));
+    for (i = 0; i < (int)oc_string_array_get_allocated_size(types); i++) {
+        char *t = oc_string_array_get_item(types, i);
+        PRINT("\n\nDISCOVERED RES %s\n\n\n", t);
+        if (strlen(t) == 10 && strncmp(t, "core.light", 10) == 0) {
+            oc_endpoint_list_copy(&light_server, endpoint);
+            strncpy(a_light, uri, uri_len);
+            a_light[uri_len] = '\0';
 
-    oc_do_get("/a/light", &addr, NULL, &get_light_handler, LOW_QOS, NULL);
+            PRINT("Resource %s hosted at endpoints:\n", a_light);
+            oc_endpoint_t *ep = endpoint;
+            while (ep != NULL) {
+                PRINTipaddr(*ep);
+                PRINT("\n");
+                ep = ep->next;
+            }
+        }
+    }
 
-    return OC_EVENT_CONTINUE;
+    return OC_STOP_DISCOVERY;
 }
 
 static void
 issue_requests(void)
 {
-    oc_set_delayed_callback(NULL, get_light, 10);
+    oc_do_ip_discovery("core.light", discovery_handler, NULL);
 }
 
 static void
@@ -132,13 +192,10 @@ main(int argc, char* argv[])
 {
     int init;
 
-    if (argc != 3) {
-        PRINT("Invalid arguments, Usage: ipv6_get_client [addr] [index]\n");
-        return -1;
+    if (argc == 3) {
+        addr_str = argv[1];
+        if_index = atoi(argv[2]);
     }
-
-    addr_str = argv[1];
-    if_index = atoi(argv[2]);
 
 #ifdef WIN32
     InitializeCriticalSection(&cs);
