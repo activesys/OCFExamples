@@ -21,7 +21,7 @@ struct timespec ts;
 #endif
 
 static bool state = false;
-int power;
+int power = 0;
 oc_string_t name;
 
 static int
@@ -47,7 +47,9 @@ get_light(oc_request_t *request, oc_interface_mask_t iface_mask,
         oc_process_baseline_interface(request->resource);
     case OC_IF_RW:
         oc_rep_set_boolean(root, state, state);
-        oc_rep_set_int(root, power, power);
+        if (power) {
+            oc_rep_set_int(root, power, power);
+        }
         oc_rep_set_text_string(root, name, oc_string(name));
         break;
     default:
@@ -57,11 +59,46 @@ get_light(oc_request_t *request, oc_interface_mask_t iface_mask,
     oc_send_response(request, OC_STATUS_OK);
 }
 
+static void
+put_light(oc_request_t* request, oc_interface_mask_t iface_mask,
+    void* user_data)
+{
+    char* json = NULL;
+    size_t json_size = 0;
+
+    oc_rep_t* rep = request->request_payload;
+    json_size = oc_rep_to_json(rep, NULL, 0, true);
+    json = malloc(json_size + 1);
+    oc_rep_to_json(rep, json, json_size + 1, true);
+    printf(json);
+    free(json);
+
+    while (rep != NULL) {
+        switch(rep->type) {
+        case OC_REP_BOOL:
+            state = rep->value.boolean;
+            break;
+        case OC_REP_INT:
+            power = (int)rep->value.integer;
+            break;
+        default:
+            oc_send_response(request, OC_STATUS_BAD_REQUEST);
+            return;
+            break;
+        }
+        rep = rep->next;
+    }
+
+    oc_send_response(request, OC_STATUS_CHANGED);
+}
+
+/*
 static oc_event_callback_retval_t update_power(void * data)
 {
     power = rand();
     return OC_EVENT_CONTINUE;
 }
+*/
 
 static void
 register_resources(void)
@@ -70,10 +107,12 @@ register_resources(void)
     oc_resource_bind_resource_type(res, "core.light");
     oc_resource_bind_resource_interface(res, OC_IF_RW);
     oc_resource_set_default_interface(res, OC_IF_RW);
+    oc_resource_set_discoverable(res, true);
     oc_resource_set_request_handler(res, OC_GET, get_light, NULL);
+    oc_resource_set_request_handler(res, OC_PUT, put_light, NULL);
     oc_add_resource(res);
 
-    oc_set_delayed_callback(NULL, update_power, 7);
+    // oc_set_delayed_callback(NULL, update_power, 7);
 }
 
 static void
