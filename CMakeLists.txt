@@ -193,8 +193,8 @@ endif(WIN32)
 # Build ipv6_client
 add_subdirectory(ipv6_client)
 
-# Build ipv6_get_server
-add_subdirectory(ipv6_get_server)
+# Build ipv6_server
+add_subdirectory(ipv6_server)
 
 # Build installer
 # add_subdirectory(installer)
