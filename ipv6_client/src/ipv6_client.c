@@ -1,4 +1,4 @@
-#include "ipv6_get_client_config.h"
+#include "ipv6_client_config.h"
 
 #include "oc_api.h"
 #include "oc_endpoint.h"
@@ -20,7 +20,7 @@ static CONDITION_VARIABLE cv;
 static CRITICAL_SECTION cs;
 #else
 pthread_mutex_t mutex;
-pthread_cond_t cv;
+pthread_cond_t  cv;
 struct timespec ts;
 #endif
 
@@ -45,8 +45,18 @@ static oc_string_t name;
 static void
 get_light_handler(oc_client_response_t *data)
 {
+    char* json = NULL;
+    size_t json_size = 0;
+
     PRINT("GET_light:\n");
     oc_rep_t *rep = data->payload;
+
+    json_size = oc_rep_to_json(rep, NULL, 0, true);
+    json = malloc(json_size + 1);
+    oc_rep_to_json(rep, json, json_size+1, true);
+    printf(json);
+    free(json);
+
     while (rep != NULL) {
         PRINT("key %s, value ", oc_string(rep->name));
         switch (rep->type) {
@@ -106,8 +116,15 @@ signal_event_loop(void)
 void
 handle_signal(int signal)
 {
-    signal_event_loop();
+#ifdef WIN32
     quit = 1;
+    WakeConditionVariable(&cv);
+#else
+    pthread_mutex_lock(&mutex);
+    quit = 1;
+    pthread_cond_signal(&cv);
+    pthread_mutex_unlock(&mutex);
+#endif
 }
 
 int
@@ -126,6 +143,8 @@ main(int argc, char* argv[])
 #ifdef WIN32
     InitializeCriticalSection(&cs);
     InitializeConditionVariable(&cv);
+
+    signal(SIGINT, handle_signal);
 #else
     struct sigaction sa;
     sigfillset(&sa.sa_mask);
@@ -133,8 +152,6 @@ main(int argc, char* argv[])
     sa.sa_handler = handle_signal;
     sigaction(SIGINT, &sa, NULL);
 #endif
-
-    signal(SIGINT, handle_signal);
 
     static const oc_handler_t handler = { .init = app_init,
                                           .signal_event_loop = signal_event_loop,

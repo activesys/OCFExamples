@@ -190,8 +190,8 @@ else(WIN32)
 endif(WIN32)
 
 ##################################
-# Build ipv6_get_client
-add_subdirectory(ipv6_get_client)
+# Build ipv6_client
+add_subdirectory(ipv6_client)
 
 # Build ipv6_get_server
 add_subdirectory(ipv6_get_server)
