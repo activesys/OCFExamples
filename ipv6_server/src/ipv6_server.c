@@ -1,4 +1,4 @@
-#include "ipv6_get_server_config.h"
+#include "ipv6_server_config.h"
 
 #include "oc_api.h"
 #include "port/oc_clock.h"
@@ -30,7 +30,7 @@ app_init(void)
     int ret = oc_init_platform("Intel", NULL, NULL);
     ret |= oc_add_device("/oic/d", "oic.d.light", "Lamp", "ocf.1.0.0",
         "ocf.res.1.0.0", NULL, NULL);
-    oc_new_string(&name, "John's Light", 12);
+    oc_new_string(&name, "Wangbo's Light", 14);
     return ret;
 }
 
@@ -91,8 +91,15 @@ signal_event_loop(void)
 void
 handle_signal(int signal)
 {
-    signal_event_loop();
+#ifdef WIN32
     quit = 1;
+    WakeConditionVariable(&cv);
+#else
+    pthread_mutex_lock(&mutex);
+    quit = 1;
+    pthread_cond_signal(&cv);
+    pthread_mutex_unlock(&mutex);
+#endif
 }
 
 int
@@ -103,6 +110,7 @@ main(void)
 #ifdef WIN32
     InitializeCriticalSection(&cs);
     InitializeConditionVariable(&cv);
+
     signal(SIGINT, handle_signal);
 #else
     struct sigaction sa;
@@ -135,8 +143,8 @@ main(void)
         } else {
             oc_clock_time_t now = oc_clock_time();
             if (now < next_event) {
-                SleepConditionVariableCS(&cv, &cs,
-                    (DWORD)((next_event - now) * 1000 / OC_CLOCK_SECOND));
+                SleepConditionVariableCS(
+                    &cv, &cs, (DWORD)((next_event - now) * 1000 / OC_CLOCK_SECOND));
             }
         }
 #else
